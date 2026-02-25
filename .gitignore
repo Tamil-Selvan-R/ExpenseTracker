@@ -1,0 +1,25 @@
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+*.sqlite3
+backend/expense_tracker.db
+
+# Node / Frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# OS
+.DS_Store
+Thumbs.db
