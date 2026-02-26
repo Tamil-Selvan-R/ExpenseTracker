@@ -3,7 +3,8 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, ActivityInd
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TripsStackParamList } from '../navigation/TripsStackNavigator';
 
-const API_URL = 'https://eager-doodles-read.loca.lt';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
 
 type Props = NativeStackScreenProps<TripsStackParamList, 'AddTrip'>;
 
@@ -36,7 +37,8 @@ export default function AddTripScreen({ navigation }: Props) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Bypass-Tunnel-Reminder': 'true'
+                    'Bypass-Tunnel-Reminder': 'true',
+                    'X-API-KEY': API_KEY
                 },
                 body: JSON.stringify(payload),
             });

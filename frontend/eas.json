@@ -1,0 +1,33 @@
+{
+    "cli": {
+        "version": ">= 7.6.0"
+    },
+    "build": {
+        "development": {
+            "developmentClient": true,
+            "distribution": "internal",
+            "env": {
+                "APP_ENV": "local"
+            }
+        },
+        "sit": {
+            "android": {
+                "buildType": "apk"
+            },
+            "env": {
+                "APP_ENV": "sit"
+            }
+        },
+        "production": {
+            "android": {
+                "buildType": "apk"
+            },
+            "env": {
+                "APP_ENV": "uat"
+            }
+        }
+    },
+    "submit": {
+        "production": {}
+    }
+}

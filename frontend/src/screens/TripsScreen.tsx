@@ -4,7 +4,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TripsStackParamList } from '../navigation/TripsStackNavigator';
 import { useFocusEffect } from '@react-navigation/native';
 
-const API_URL = 'https://eager-doodles-read.loca.lt';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
 
 type Trip = {
     id: number;
@@ -29,7 +30,10 @@ export default function TripsScreen({ navigation }: Props) {
     const fetchTrips = async () => {
         try {
             const response = await fetch(`${API_URL}/trips`, {
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
+                headers: {
+                    'Bypass-Tunnel-Reminder': 'true',
+                    'X-API-KEY': API_KEY
+                }
             });
             const data = await response.json();
             setTrips(data);

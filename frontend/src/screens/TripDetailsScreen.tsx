@@ -3,7 +3,8 @@ import { StyleSheet, Text, View, FlatList, ActivityIndicator } from 'react-nativ
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TripsStackParamList } from '../navigation/TripsStackNavigator';
 
-const API_URL = 'https://eager-doodles-read.loca.lt';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
 
 type Props = NativeStackScreenProps<TripsStackParamList, 'TripDetails'>;
 
@@ -26,7 +27,10 @@ export default function TripDetailsScreen({ route }: Props) {
     const fetchSummary = async () => {
         try {
             const response = await fetch(`${API_URL}/trips/${trip_id}/summary`, {
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
+                headers: {
+                    'Bypass-Tunnel-Reminder': 'true',
+                    'X-API-KEY': API_KEY
+                }
             });
             const data = await response.json();
             setSummary(data);

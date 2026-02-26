@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
-const API_URL = 'https://eager-doodles-read.loca.lt';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
 
 type Category = { id: number; name: string };
 type Trip = { id: number; name: string };
@@ -24,8 +25,12 @@ export default function AddExpenseScreen() {
     const fetchDropdownData = async () => {
         try {
             const [catRes, tripRes] = await Promise.all([
-                fetch(`${API_URL}/categories`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } }),
-                fetch(`${API_URL}/trips`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
+                fetch(`${API_URL}/categories`, {
+                    headers: { 'Bypass-Tunnel-Reminder': 'true', 'X-API-KEY': API_KEY }
+                }),
+                fetch(`${API_URL}/trips`, {
+                    headers: { 'Bypass-Tunnel-Reminder': 'true', 'X-API-KEY': API_KEY }
+                })
             ]);
 
             const catData = await catRes.json();
@@ -71,7 +76,8 @@ export default function AddExpenseScreen() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Bypass-Tunnel-Reminder': 'true'
+                    'Bypass-Tunnel-Reminder': 'true',
+                    'X-API-KEY': API_KEY
                 },
                 body: JSON.stringify(payload),
             });

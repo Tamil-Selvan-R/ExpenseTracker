@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View, SectionList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, SectionList, ActivityIndicator, TouchableOpacity, Alert, Image } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_URL = 'https://eager-doodles-read.loca.lt';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
+const APP_ENV = process.env.EXPO_PUBLIC_APP_ENV || 'local';
 
 type Expense = {
   id: number;
@@ -18,16 +20,40 @@ export default function HomeScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // New Dashboard States
+  const [globalSpend, setGlobalSpend] = useState<number>(0);
+  const [cumulativeTripSpend, setCumulativeTripSpend] = useState<number>(0);
+
   useFocusEffect(
     useCallback(() => {
       fetchExpenses();
+      fetchDashboardSummary();
     }, [])
   );
+
+  const fetchDashboardSummary = async () => {
+    try {
+      const response = await fetch(`${API_URL}/summary/monthly`, {
+        headers: {
+          'Bypass-Tunnel-Reminder': 'true',
+          'X-API-KEY': API_KEY
+        }
+      });
+      const data = await response.json();
+      setGlobalSpend(data.global_monthly_spend || 0);
+      setCumulativeTripSpend(data.cumulative_trip_total || 0);
+    } catch (error) {
+      console.error('Error fetching dashboard summary:', error);
+    }
+  };
 
   const fetchExpenses = async () => {
     try {
       const response = await fetch(`${API_URL}/expenses`, {
-        headers: { 'Bypass-Tunnel-Reminder': 'true' }
+        headers: {
+          'Bypass-Tunnel-Reminder': 'true',
+          'X-API-KEY': API_KEY
+        }
       });
       const data = await response.json();
       setExpenses(data);
@@ -51,7 +77,10 @@ export default function HomeScreen() {
             try {
               await fetch(`${API_URL}/expenses/${id}`, {
                 method: 'DELETE',
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
+                headers: {
+                  'Bypass-Tunnel-Reminder': 'true',
+                  'X-API-KEY': API_KEY
+                }
               });
               setExpenses(prev => prev.filter(e => e.id !== id));
             } catch (err) {
@@ -93,21 +122,35 @@ export default function HomeScreen() {
     };
   }, [expenses]);
 
-  const getCategoryIcon = (categoryName?: string): keyof typeof Ionicons.glyphMap => {
-    if (!categoryName) return 'help-circle-outline';
-    switch (categoryName.toLowerCase()) {
-      case 'commute': return 'car-outline';
-      case 'food & drink': return 'fast-food-outline';
-      case 'groceries': return 'cart-outline';
-      case 'lifestyle': return 'shirt-outline';
-      case 'social': return 'people-outline';
-      case 'fixed': return 'home-outline';
-      default: return 'cash-outline';
+  const renderCategoryIcon = (categoryName?: string) => {
+    if (!categoryName) return <Ionicons name="help-circle-outline" size={24} color="#007AFF" />;
+
+    const name = categoryName.toLowerCase();
+
+    if (name.includes('commute')) {
+      return <Image source={require('../../assets/icons/auto.png')} style={{ width: 24, height: 24, tintColor: '#007AFF' }} />;
+    } else if (name.includes('food')) {
+      return <Image source={require('../../assets/icons/snacks.png')} style={{ width: 24, height: 24, tintColor: '#007AFF' }} />;
+    } else if (name.includes('fixed') || name.includes('fuel') || name.includes('petrol')) {
+      return <Image source={require('../../assets/icons/petrol.png')} style={{ width: 24, height: 24, tintColor: '#007AFF' }} />;
     }
+
+    let iconName: keyof typeof Ionicons.glyphMap = 'cash-outline';
+    switch (name) {
+      case 'groceries': iconName = 'cart-outline'; break;
+      case 'lifestyle': iconName = 'shirt-outline'; break;
+      case 'social': iconName = 'people-outline'; break;
+    }
+    return <Ionicons name={iconName} size={24} color="#007AFF" />;
   };
 
   const renderHeader = () => (
     <View style={styles.dashboardCard}>
+      {APP_ENV === 'sit' && (
+        <View style={styles.envBadge}>
+          <Text style={styles.envBadgeText}>SIT ENVIRONMENT</Text>
+        </View>
+      )}
       <Text style={styles.dashboardTitle}>Monthly Insights</Text>
       <Text style={styles.dashboardTotal}>₹{totalSpend.toFixed(2)}</Text>
       <Text style={styles.dashboardSubtitle}>Total Spend</Text>
@@ -130,7 +173,7 @@ export default function HomeScreen() {
     <TouchableOpacity onLongPress={() => handleDelete(item.id)} style={styles.expenseCard}>
       <View style={styles.expenseRow}>
         <View style={styles.iconContainer}>
-          <Ionicons name={getCategoryIcon(item.category?.name)} size={24} color="#007AFF" />
+          {renderCategoryIcon(item.category?.name)}
         </View>
         <View style={styles.expenseBody}>
           <View style={styles.expenseHeaderRow}>
@@ -210,6 +253,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  envBadge: {
+    backgroundColor: '#FFCC00',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  envBadgeText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: 'bold',
     letterSpacing: 1,
   },
   dashboardTotal: {

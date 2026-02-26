@@ -1,19 +1,20 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Security, Query
+from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 from datetime import date
+from config import settings
 
-from database import engine, Base, SessionLocal
-import models
-import schemas
+from database import engine, SessionLocal
+import models, schemas, database
 
 # Create database tables
-Base.metadata.create_all(bind=engine)
+models.Base.metadata.create_all(bind=engine)
 
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Personal & Trip Expense Tracker API")
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,6 +23,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# API Security
+API_KEY = settings["API_KEY"]
+api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+
+async def get_api_key(api_key_header: str = Security(api_key_header)):
+    if api_key_header == API_KEY:
+        return api_key_header
+    raise HTTPException(
+        status_code=401, detail="Could not validate API KEY"
+    )
 
 # Dependency
 def get_db():
@@ -49,7 +61,7 @@ def health_check_alias():
     return {"status": "healthy"}
 
 @app.post("/trips", response_model=schemas.Trip)
-def create_trip(trip: schemas.TripCreate, db: Session = Depends(get_db)):
+def create_trip(trip: schemas.TripCreate, db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
     user = get_or_create_dummy_user(db)
     db_trip = models.Trip(**trip.model_dump(), user_id=user.id)
     db.add(db_trip)
@@ -58,12 +70,12 @@ def create_trip(trip: schemas.TripCreate, db: Session = Depends(get_db)):
     return db_trip
 
 @app.get("/trips", response_model=List[schemas.Trip])
-def get_trips(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_trips(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
     trips = db.query(models.Trip).offset(skip).limit(limit).all()
     return trips
 
 @app.post("/expenses", response_model=schemas.Expense)
-def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db)):
+def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
     user = get_or_create_dummy_user(db)
     db_expense = models.Expense(**expense.model_dump(), user_id=user.id)
     db.add(db_expense)
@@ -72,13 +84,14 @@ def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db)
     return db_expense
 
 @app.get("/categories", response_model=List[schemas.Category])
-def get_categories(db: Session = Depends(get_db)):
+def get_categories(db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
     return db.query(models.Category).all()
 
 @app.get("/expenses", response_model=List[schemas.Expense])
 def get_expenses(
     trip_id: Optional[int] = Query(None, description="Filter expenses by trip ID. If null, returns all expenses."),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Security(get_api_key)
 ):
     query = db.query(models.Expense)
     if trip_id is not None:
@@ -86,7 +99,7 @@ def get_expenses(
     return query.all()
 
 @app.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+def delete_expense(expense_id: int, db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
     expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
@@ -94,8 +107,25 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Expense deleted successfully"}
 
+@app.get("/summary/monthly")
+def get_monthly_summary(db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
+    """Aggregation endpoint requested by the user returning Global Spending and Trip Tagged spending"""
+    expenses = db.query(models.Expense).all()
+    global_spend = 0.0
+    trip_spend = 0.0
+    
+    for exp in expenses:
+        global_spend += exp.amount
+        if exp.trip_id is not None:
+            trip_spend += exp.amount
+            
+    return {
+        "global_monthly_spend": global_spend,
+        "cumulative_trip_total": trip_spend
+    }
+
 @app.get("/trips/{trip_id}/summary")
-def get_trip_summary(trip_id: int, db: Session = Depends(get_db)):
+def get_trip_summary(trip_id: int, db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
     trip = db.query(models.Trip).filter(models.Trip.id == trip_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
@@ -116,7 +146,7 @@ def get_trip_summary(trip_id: int, db: Session = Depends(get_db)):
     }
 
 @app.post("/seed")
-def seed_data(db: Session = Depends(get_db)):
+def seed_data(db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
     user = get_or_create_dummy_user(db)
         
     chennai_categories = [
