@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Security, Query
 from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from typing import List, Optional
 from datetime import date
 from config import settings
@@ -57,8 +57,12 @@ def health_check():
     return {"status": "healthy", "message": "Expense Tracker API is running"}
 
 @app.get("/health")
-def health_check_alias():
-    return {"status": "healthy"}
+def health_check_alias(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
 
 @app.post("/trips", response_model=schemas.Trip)
 def create_trip(trip: schemas.TripCreate, db: Session = Depends(get_db), api_key: str = Security(get_api_key)):
